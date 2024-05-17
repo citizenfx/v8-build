@@ -39,4 +39,4 @@ This repository contains all the necessary tools and scripts to build Google's V
 
 ## Build Results
 
-The build results will be located in the `builds_results` folder.
+The build results will be located in the `build_results` folder.
