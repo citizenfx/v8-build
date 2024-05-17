@@ -1,2 +1,7 @@
 v8
 .cipd
+build_results
+.gclient
+.gclient_entries
+.gclient_previous_sync_commits
+.gcs_entries
