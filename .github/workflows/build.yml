@@ -1,0 +1,36 @@
+name: V8 Build CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    
+    steps:
+      - name: Support longpaths
+        run: git config --global core.longpaths true
+        
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+          
+      - name: Prepare Depot and build V8
+        working-directory: ${{ github.workspace }}
+        run: |
+          .\build\prepare-depot.ps1 && .\build\build.ps1
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release_build
+          path: build_results/*.lib 
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: ${{ format('build-{0}', github.run_id) }}
+          tag_name: ${{ format('build-{0}', github.run_id) }}
+          files: build_results/*.lib
