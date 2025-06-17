@@ -19,3 +19,4 @@ cppgc_enable_caged_heap = true
 use_custom_libcxx = false
 treat_warnings_as_errors = false
 use_lld = false
+enable_iterator_debugging = true

@@ -33,7 +33,7 @@ gclient sync
 ####################################
 
 # Trick to force v8 to use dynamic CRT
-(Get-Content "${MOUNT_TARGET_DRIVE}:\v8\build\config\BUILDCONFIG.gn").Replace('//build/config/win:default_crt', '//build/config/win:dynamic_crt') | Set-Content "${MOUNT_TARGET_DRIVE}:\v8\build\config\BUILDCONFIG.gn"
+(Get-Content "${MOUNT_TARGET_DRIVE}:\v8\build\config\BUILDCONFIG.gn").Replace('//build/config/win:default_crt', '//build/config/win:static_crt') | Set-Content "${MOUNT_TARGET_DRIVE}:\v8\build\config\BUILDCONFIG.gn"
 
 # Fixing bug with compiling inlined icudata in ASM with Clang
 # This cheap trick breaks macos version compilation, but we don't care about that
