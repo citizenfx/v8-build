@@ -1,4 +1,4 @@
-name: V8 Build CI
+wname: V8 Build CI
 
 on:
   workflow_dispatch:
@@ -15,6 +15,52 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: 'recursive'
+
+      - name: Locate VS Installer vs_installer.exe
+        id: vsinst
+        shell: pwsh
+        run: |
+          $bootstrap = Join-Path $env:RUNNER_TEMP 'vs_enterprise.exe'
+          Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vs_enterprise.exe' -OutFile $bootstrap
+          echo "cmd=$bootstrap" >> $env:GITHUB_OUTPUT
+          echo "op=install" >> $env:GITHUB_OUTPUT
+      
+      - name: Get VS installation path
+        id: vs
+        shell: pwsh
+        run: |
+          $path = vswhere -latest -products * -property installationPath
+          if (-not $path) { throw "vswhere could not find Visual Studio" }
+          echo "path=$path" >> $env:GITHUB_OUTPUT
+
+      - name: Install MSVC 14.36.32532
+        shell: pwsh
+        run: |
+          $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+          $startInfo.FileName = "${{ steps.vsinst.outputs.cmd }}"
+          $startInfo.Arguments = 'modify --installPath "${{ steps.vs.outputs.path }}" --add Microsoft.VisualStudio.Component.VC.14.36.17.6.x86.x64 --passive --norestart --wait --noUpdateInstaller'
+          $process = New-Object System.Diagnostics.Process
+          $process.StartInfo = $startInfo
+          $process.Start()
+          $process.WaitForExit()
+
+      - name: Verify MSVC 14.36 & list Auxiliary\Build
+        shell: pwsh
+        run: |
+          # Verify the installation
+          $path = Join-Path '${{ steps.vs.outputs.path }}' 'VC\Auxiliary\Build'
+          if (-not (Test-Path $path)) { throw "MSVC 14.36 not found" }
+      
+          # List the contents of the Auxiliary\Build folder
+          Write-Host "`n=== Contents of $path ==="
+          Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-Host $_.FullName }
+
+      - name: Ensure MSVC Toolset 14.36.32532 is installed
+        uses: TheMrMilchmann/setup-msvc-dev@v3
+        with:
+          arch: x64
+          toolset: 14.36.32532
           
       - name: Prepare Depot and build V8
         working-directory: ${{ github.workspace }}
