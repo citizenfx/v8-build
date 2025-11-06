@@ -4,8 +4,13 @@ target_cpu = "x64"
 v8_static_library = true
 is_component_build = false
 
+v8_enable_slow_dchecks = false
+v8_optimized_debug = true
+enable_iterator_debugging = true
+
 v8_use_external_startup_data = false
-v8_enable_sandbox = true
+v8_enable_v8_checks = false
+v8_enable_sandbox = false
 v8_monolithic = true
 v8_enable_i18n_support = true
 v8_enable_webassembly = true
@@ -18,5 +23,4 @@ v8_enable_31bit_smis_on_64bit_arch = true
 cppgc_enable_caged_heap = true
 use_custom_libcxx = false
 treat_warnings_as_errors = false
-use_lld = false
-enable_iterator_debugging = true
+use_lld = true

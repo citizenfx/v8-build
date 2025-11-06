@@ -18,13 +18,29 @@ $REPOSITORY_TARGET_CHECKOUT = Get-Content "${MOUNT_TARGET_DRIVE}:\build\target.t
 
 # Fetch v8 source
 & fetch v8
+Set-Location "${MOUNT_TARGET_DRIVE}:\v8"
+git reset --hard HEAD
+git clean -fdx
+# if "build" folder exists cd into it and clean it too
+if (Test-Path -Path "${MOUNT_TARGET_DRIVE}:\v8\build") {
+    Set-Location "${MOUNT_TARGET_DRIVE}:\v8\build"
+    git reset --hard HEAD
+    git clean -fdx
+    Set-Location "${MOUNT_TARGET_DRIVE}:\v8"
+}
+# if "third_party/icu" folder exists cd into it and clean it too
+if (Test-Path -Path "${MOUNT_TARGET_DRIVE}:\v8\third_party\icu") {
+    Set-Location "${MOUNT_TARGET_DRIVE}:\v8\third_party\icu"
+    git reset --hard HEAD
+    git clean -fdx
+    Set-Location "${MOUNT_TARGET_DRIVE}:\v8"
+}
+git checkout $REPOSITORY_TARGET_CHECKOUT
+gclient sync -D
 New-Item -ItemType Directory -Force -Path "${MOUNT_TARGET_DRIVE}:\v8\out.gn\x64.release"
 New-Item -ItemType Directory -Force -Path "${MOUNT_TARGET_DRIVE}:\v8\out.gn\x64.debug"
 Copy-Item -Path "${MOUNT_TARGET_DRIVE}:\build\args_debug.gn" -Destination "${MOUNT_TARGET_DRIVE}:\v8\out.gn\x64.debug\args.gn"
 Copy-Item -Path "${MOUNT_TARGET_DRIVE}:\build\args_release.gn" -Destination "${MOUNT_TARGET_DRIVE}:\v8\out.gn\x64.release\args.gn"
-Set-Location "${MOUNT_TARGET_DRIVE}:\v8"
-git checkout $REPOSITORY_TARGET_CHECKOUT
-gclient sync
 
 ####################################
 #                                  #
@@ -32,12 +48,24 @@ gclient sync
 #                                  #
 ####################################
 
-# Trick to force v8 to use dynamic CRT
-(Get-Content "${MOUNT_TARGET_DRIVE}:\v8\build\config\BUILDCONFIG.gn").Replace('//build/config/win:default_crt', '//build/config/win:static_crt') | Set-Content "${MOUNT_TARGET_DRIVE}:\v8\build\config\BUILDCONFIG.gn"
+# Trick to force v8 to use static CRT
+$filePath = "${MOUNT_TARGET_DRIVE}:\v8\build\config\BUILDCONFIG.gn"
+$replaceWhat = '//build/config/win:default_crt'
+$replaceWith = '//build/config/win:static_crt'
+(Get-Content $filePath).Replace($replaceWhat, $replaceWith) | Set-Content $filePath
 
 # Fixing bug with compiling inlined icudata in ASM with Clang
 # This cheap trick breaks macos version compilation, but we don't care about that
-(Get-Content "${MOUNT_TARGET_DRIVE}:\v8\third_party\icu\scripts\make_data_assembly.py").Replace('_icudt%s_dat', 'icudt%s_dat') | Set-Content "${MOUNT_TARGET_DRIVE}:\v8\third_party\icu\scripts\make_data_assembly.py"
+$filePath = "${MOUNT_TARGET_DRIVE}:\v8\third_party\icu\scripts\make_data_assembly.py"
+$replaceWhat = '_icudt%s_dat'
+$replaceWith = 'icudt%s_dat'
+(Get-Content $filePath).Replace($replaceWhat, $replaceWith) | Set-Content $filePath
+
+# Add check for possible_transition_targets emptyness in js-heap-broker.cc as it's causing "empty range -> iterator deref" bug
+$filePath = "${MOUNT_TARGET_DRIVE}:\v8\src\compiler\js-heap-broker.cc"
+$replaceWhat = 'MapHandlesSpan(possible_transition_targets.begin(),'
+$replaceWith = 'possible_transition_targets.empty() ? MapHandlesSpan() : MapHandlesSpan(possible_transition_targets.begin(),'
+(Get-Content $filePath).Replace($replaceWhat, $replaceWith) | Set-Content $filePath
 
 ####################################
 #                                  #
