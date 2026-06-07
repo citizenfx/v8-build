@@ -67,6 +67,24 @@ $replaceWhat = 'MapHandlesSpan(possible_transition_targets.begin(),'
 $replaceWith = 'possible_transition_targets.empty() ? MapHandlesSpan() : MapHandlesSpan(possible_transition_targets.begin(),'
 (Get-Content $filePath).Replace($replaceWhat, $replaceWith) | Set-Content $filePath
 
+# Fix std::function -> base::FunctionRef incompatibility in backing-store.cc on newer V8/Clang builds
+$filePath = "${MOUNT_TARGET_DRIVE}:\v8\src\objects\backing-store.cc"
+$replaceWhat = 'auto gc_retry = [&](const std::function<bool()>& fn) {'
+$replaceWith = 'auto gc_retry = [&](base::FunctionRef<bool()> fn) {'
+(Get-Content $filePath).Replace($replaceWhat, $replaceWith) | Set-Content $filePath
+
+# Increase Clang constexpr step limit for debug iterator builds
+$filePath = "${MOUNT_TARGET_DRIVE}:\v8\BUILD.gn"
+$replaceWhat = 'cflags += [ "-Wunreachable-code" ]'
+$replaceWith = @'
+cflags += [ "-Wunreachable-code" ]
+
+    if (host_os == "win") {
+      cflags += [ "/clang:-fconstexpr-steps=5242880" ]
+    }
+'@
+(Get-Content $filePath -Raw).Replace($replaceWhat, $replaceWith) | Set-Content $filePath
+
 ####################################
 #                                  #
 #     Tricks and hacks zone end    #
@@ -82,6 +100,21 @@ ninja -C out.gn/x64.release -j16 v8_monolith
 New-Item -ItemType Directory -Force -Path "${MOUNT_TARGET_DRIVE}:\build_results"
 Copy-Item -Path "${MOUNT_TARGET_DRIVE}:\v8\out.gn\x64.debug\obj\v8_monolith.lib" -Destination "${MOUNT_TARGET_DRIVE}:\build_results\v8_monolithd.lib"
 Copy-Item -Path "${MOUNT_TARGET_DRIVE}:\v8\out.gn\x64.release\obj\v8_monolith.lib" -Destination "${MOUNT_TARGET_DRIVE}:\build_results\v8_monolith.lib"
+
+$PACKAGE_ROOT = "${MOUNT_TARGET_DRIVE}:\build_results\v8-package"
+$PACKAGE_LIBS_DIR = "$PACKAGE_ROOT\libs"
+$PACKAGE_INCLUDE_DIR = "$PACKAGE_ROOT\include\v8"
+$PACKAGE_ARCHIVE = "${MOUNT_TARGET_DRIVE}:\build_results\v8.tar.xz"
+
+Remove-Item -Path $PACKAGE_ROOT -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path $PACKAGE_ARCHIVE -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path $PACKAGE_LIBS_DIR
+New-Item -ItemType Directory -Force -Path $PACKAGE_INCLUDE_DIR
+Copy-Item -Path "${MOUNT_TARGET_DRIVE}:\build_results\v8_monolithd.lib" -Destination $PACKAGE_LIBS_DIR
+Copy-Item -Path "${MOUNT_TARGET_DRIVE}:\build_results\v8_monolith.lib" -Destination $PACKAGE_LIBS_DIR
+Copy-Item -Path "${MOUNT_TARGET_DRIVE}:\v8\include\*" -Destination $PACKAGE_INCLUDE_DIR -Recurse -Force
+tar.exe -cJf $PACKAGE_ARCHIVE -C $PACKAGE_ROOT .
+Remove-Item -Path $PACKAGE_ROOT -Recurse -Force
 
 # Attempt to clean up and remove X: mapping at the end; ignore errors
 Invoke-Expression "subst ${MOUNT_TARGET_DRIVE}: /D" -ErrorAction SilentlyContinue
